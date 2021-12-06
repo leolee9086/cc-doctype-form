@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en" style="width:100%;height:100%;margin:0;padding:0;border:0;">
+<head>
+    <meta charset="utf-8">
+    <script src="/widgets/cc-baselib/static/vue.js"></script>
+    <script src="/widgets/cc-baselib/static/element-ui/index.js"></script>
+    <script src="/widgets/cc-baselib/static/axios.min.js"></script>
+    <script src="/widgets/cc-baselib/static/vue-clipboard.min.js"></script>
+    <script src="/widgets/cc-baselib/static/vue-router.js"></script>
+    <script src="/widgets/cc-baselib/static/httpVueLoader.js"></script>
+    <script src="/widgets/cc-baselib/static/jszip.min.js"></script>
+    <script src="/widgets/cc-baselib/static/Sortable.min.js"></script>
+    <script src="/widgets/cc-baselib/static/vuedraggable.umd.min.js"></script>
+
+    <script src="/widgets/cc-baselib/src/commonFunctionsForSiyuan.js"></script>
+    <script src="/widgets/cc-baselib/src/siYuanApi.js"></script>
+    <script src="/widgets/cc-baselib/src/componentsList.js"></script>
+
+    <link rel="stylesheet" href="/widgets/cc-baselib/static/element-ui/theme-chalk/index.css">
+    <link id='themeDefaultStyle'>
+<body>
+    <div id="app">
+        <el-popover>    
+            <div slot="reference" style="font-size: smaller;" >
+                <span>{{当前属性源}}</span>
+
+                <span>id:{{当前块属性["id"]}}</span>
+                <span>最后编辑于:{{当前块属性["updated"]}}</span>
+            </div>                
+                
+                <el-select
+                v-model="当前属性源"
+                size="mini"
+                placeholder="请选择属性源"
+                >
+                   <el-option
+                    v-for="item  in 属性源选项数组"
+                    :value="item"
+                    :label="item"
+                   >
+
+                   </el-option>
+                </el-select>
+        </el-popover>       
+            </el-row>    
+                <cc-block-attr-form
+                :内容块id="当前块id"
+                :是否显示基础属性="是否显示基础属性"
+                :是否显示源属性名="是否显示原始属性名"
+                :是否显示原始自定义属性="是否显示属性原始值"
+                :是否显示自定义属性="是否显示自定义属性"
+                :新属性模板="新属性"
+                :属性类型="属性类型"
+                :书签列表="书签列表"
+                :主界面="主界面"
+                >
+                </cc-block-attr-form>
+    </div>
+</body>
+<script>
+    Vue.use(httpVueLoader);
+    Vue.use(vuedraggable);
+    var vm = new Vue({
+        el:"#app",
+        components:componentList,
+        data(){
+            return{
+                主界面:"",
+                当前块id:"",
+                挂件自身元素:"",
+                apitoken:"",
+                是否显示基础属性:true,
+                是否显示原始属性名:false,
+                是否显示属性原始值:false,
+                是否显示自定义属性:true,
+                新属性:{"type":"原始文本","name":"newattr","label":"newattr","value":"default"},
+                属性类型:["图片","文本","块链接","超链接","原始文本","附件"],
+                书签列表:"",
+                当前属性源:"当前文档",
+                属性源选项数组:["当前编辑块","当前文档","挂件前一个块"],
+                当前块属性:{}
+            } 
+        },
+        mounted(){
+            this.主界面= window.parent.document
+            this.思源伺服ip = window.location.host
+            this.$获取思源主界面主题(this.主界面)
+            this.$获取书签列表()
+            this.获取当前块id()
+            this.当前属性源=this.$挂件自身元素().getAttribute("custom-source")
+            this.当前属性源=this.$html转义(this.当前属性源)
+            this.挂件自身元素=this.$挂件自身元素()
+        },
+        methods:{
+            
+            获取当前块id:async function(){
+                let that =this
+                let 挂件自身id =""
+                    if(this.$挂件自身元素()){
+                     挂件自身id = this.$挂件自身元素().getAttribute("data-node-id")}
+
+                if(this.当前属性源=="当前文档"){
+                    let 临时属性数组 = await this.$以id数组通过sql形式获取思源块信息数组([挂件自身id])
+                    let 挂件自身属性 =  临时属性数组[0]
+                    this.当前块id=挂件自身属性["root_id"]
+                    return null
+                }
+                else if(this.当前属性源=="当前编辑块"){
+                    if(this.$挂件自身元素()){
+                        
+                        this.主界面.addEventListener("click",that.获取正在编辑的块id)
+                        this.主界面.addEventListener("keyup",that.获取正在编辑的块id)
+                    }
+                    else{
+                        this.主界面.removeEventListener("click",that.获取正在编辑的块id)
+                        this.主界面.removeEventListener("keyup",that.获取正在编辑的块id)
+                    }
+                    
+                }
+                else if(this.当前属性源=="挂件前一个块"){
+                    let 挂件前一个块 =  this.$挂件自身元素().previousSibling
+                    this.当前块id= 挂件前一个块.getAttribute("data-node-id")
+                }
+            },
+            获取正在编辑的块id:function(event){
+                let that=this
+                that.当前块id=that.$获取事件目标块id(event)
+            }
+
+        },
+        watch:{
+            当前属性源:async function(val){
+                await this.获取当前块id()
+                let id = this.挂件自身元素.getAttribute("data-node-id")
+                this.$挂件自身元素().setAttribute("custom-source",this.当前属性源)
+                设置思源块属性(this.思源伺服ip,this.apitoken,id,"custom-source",val)              
+            },
+            当前块id:async function(val){
+                let 临时属性数组 = await this.$以id数组通过sql形式获取思源块信息数组([val])
+                this.当前块属性 =  临时属性数组[0]
+            }
+        }
+    })    
+
+</script>
+<style>
+        html,html div,html span,label{
+            color:var(--b3-theme-on-background) !important;
+            font-family: var(--b3-font-family);
+        }
+        button,input{
+            background-color:var(--b3-theme-surface-light) !important
+        }
+        .el-table,
+        .el-table__expanded-cell {
+            background-color: transparent !important;
+        }         
+        .el-table th,
+        .el-table tr,
+        .el-table td {
+            background-color: transparent !important;
+        } 
+        .fullwidth>.el-input {
+            width:"100%";
+            color:var(--b3-theme-on-background) !important
+
+        }
+        
+</style>
